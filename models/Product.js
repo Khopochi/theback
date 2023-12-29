@@ -54,6 +54,14 @@ const ProductScheme = new mongoose.Schema({
         type: String,
         required: true
     },
+    disc: {
+        type: Boolean,
+        default: true,
+      },
+    vat: {
+        type: Boolean,
+        default: true,
+    },
     discount: {
         type: Number,
     },

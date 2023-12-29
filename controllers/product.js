@@ -209,10 +209,18 @@ export const getCategoriesWithProducts = async (req, res) => {
           .limit(10)
           .lean();
 
-        const products = await Product
-          .find({ categoryid: category._id },)
-          .limit(6)
-          .lean();
+          const totalProducts = await Product.countDocuments({ categoryid: category._id });
+          // Ensure we don't skip more products than available
+          const randomSkip = totalProducts > 6 ? Math.floor(Math.random() * (totalProducts - 6)) : 0;
+
+          const products = await Product.find({ categoryid: category._id })
+            .skip(randomSkip)
+            .limit(6)
+            .lean();
+
+
+
+          // console.log(totalProducts)
 
         // Fetch deep category ids
         const deepCategoryIds = products.map(product => product.deepcategoryid);
@@ -287,22 +295,63 @@ function shuffleArray(array) {
 
 //fetch again
 export const searchProducts = async (req, res) => {
-  const searchterm = req.params.searchterm;
+  const searchTerm = req.params.searchterm;
   const ids = req.params.id;
   const array = ids.split(",");
+  console.log(searchTerm)
+
   try {
-    // Use a regex pattern to perform a case-insensitive search on the product name
+    // Find categories that match the search term
+    const matchingCategories = await Category.find({
+      $or: [
+        { name: { $regex: searchTerm, $options: 'i' } },
+        // Add additional fields for subcategory and deep category as needed
+      ],
+    }).select('_id');
+
+    // Extract the IDs from the matching categories
+    const categoryIds = matchingCategories.map(category => category._id);
+
+    // Find subcategories that match the search term
+    const matchingSubcategories = await Subcategory.find({
+      $or: [
+        { name: { $regex: searchTerm, $options: 'i' } },
+        // Add additional fields for subcategory and deep category as needed
+      ],
+    }).select('_id');
+
+    // Extract the IDs from the matching subcategories
+    const subcategoryIds = matchingSubcategories.map(subcategory => subcategory._id);
+
+    // Find deep categories that match the search term
+    const matchingDeepCategories = await Deepcategory.find({
+      $or: [
+        { name: { $regex: searchTerm, $options: 'i' } },
+        // Add additional fields for subcategory and deep category as needed
+      ],
+    }).select('_id');
+
+    // Extract the IDs from the matching deep categories
+    const deepCategoryIds = matchingDeepCategories.map(deepCategory => deepCategory._id);
+
+    // Find products based on the search term and matching category, subcategory, and deep category IDs
     const products = await Product.find({
-      name: { $regex: new RegExp(searchterm, 'i') },
-      details: { $regex: new RegExp(searchterm, 'i') },
-      _id: { $nin: array },
+      $or: [
+        { name: { $regex: searchTerm, $options: 'i' } }, // Case-insensitive search in name
+        { details: { $regex: searchTerm, $options: 'i' } }, // Case-insensitive search in details
+        { categoryid: { $in: categoryIds } }, // Match products with matching category IDs
+        { subcategoryid: { $in: subcategoryIds } }, // Match products with matching subcategory IDs
+        { deepcategoryid: { $in: deepCategoryIds } }, // Match products with matching deep category IDs
+        { _id: { $nin: array } }, // Exclude products with specified IDs
+      ],
     }).limit(12);
 
     res.status(200).json(products);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(200).json({ error: err.message });
   }
 };
+
 
 //for category
 export const searchProductsCategory = async (req, res) => {

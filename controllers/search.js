@@ -80,12 +80,49 @@ export const getSearch = async (req, res) => {
   try {
       // Search for products that match the given search term
       const searchTerm = req.params.searchTerm;
+      // Find categories that match the search term
+      const matchingCategories = await Category.find({
+        $or: [
+          { name: { $regex: searchTerm, $options: 'i' } },
+          // Add additional fields for subcategory and deep category as needed
+        ],
+      }).select('_id');
+
+      // Extract the IDs from the matching categories
+      const categoryIdsS = matchingCategories.map(category => category._id);
+
+      // Find subcategories that match the search term
+      const matchingSubcategories = await Subcategory.find({
+        $or: [
+          { name: { $regex: searchTerm, $options: 'i' } },
+          // Add additional fields for subcategory and deep category as needed
+        ],
+      }).select('_id');
+
+      // Extract the IDs from the matching subcategories
+      const subcategoryIdsS = matchingSubcategories.map(subcategory => subcategory._id);
+
+      // Find deep categories that match the search term
+      const matchingDeepCategories = await Deepcategory.find({
+        $or: [
+          { name: { $regex: searchTerm, $options: 'i' } },
+          // Add additional fields for subcategory and deep category as needed
+        ],
+      }).select('_id');
+
+      // Extract the IDs from the matching deep categories
+      const deepCategoryIdsS = matchingDeepCategories.map(deepCategory => deepCategory._id);
+
+      // Find products based on the search term and matching category, subcategory, and deep category IDs
       const matchedProducts = await Product.find({
-          $or: [
-              { name: { $regex: searchTerm, $options: 'i' } }, // Case-insensitive search in name
-              { details: { $regex: searchTerm, $options: 'i' } }, // Case-insensitive search in details
-              { searchTem: { $in: [searchTerm] } }, // Match if searchTerm is in the searchTem array
-          ],
+        $or: [
+          { name: { $regex: searchTerm, $options: 'i' } }, // Case-insensitive search in name
+          { details: { $regex: searchTerm, $options: 'i' } }, // Case-insensitive search in details
+          { searchTem: { $in: [searchTerm] } }, // Match if searchTerm is in the searchTem array
+          { categoryid: { $in: categoryIdsS } }, // Match products with matching category IDs
+          { subcategoryid: { $in: subcategoryIdsS } }, // Match products with matching subcategory IDs
+          { deepcategoryid: { $in: deepCategoryIdsS } }, // Match products with matching deep category IDs
+        ],
       }).limit(12);
 
       // Extract unique category and subcategory ids from matched products
